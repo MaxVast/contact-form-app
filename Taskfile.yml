@@ -1,0 +1,25 @@
+version: '3'
+
+includes:
+  docker: ./taskfile/DockerTasks.yml
+  test: ./taskfile/TestTasks.yml
+
+tasks:
+  install:
+    desc: "Build et démarre tous les services en arrière-plan"
+    cmds:
+      - task: docker:stop
+      - task: docker:install
+      - task: docker:ps
+
+  stop:
+    desc: "Stop docker containers"
+    cmds:
+      - task: docker:stop
+
+
+  ci:
+    desc: "Suite de tests complète (utilisée en CI)"
+    cmds:
+      - task: test:test-backend
+      - task: test:test-frontend

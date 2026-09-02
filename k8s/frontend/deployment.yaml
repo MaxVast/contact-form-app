@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact-frontend
+  namespace: contact-form
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: contact-frontend
+  template:
+    metadata:
+      labels:
+        app: contact-frontend
+    spec:
+      containers:
+        - name: contact-frontend
+          image: ghcr.io/maxvast/contact-form-frontend:latest
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: contact-backend
+  namespace: contact-form
+spec:
+  selector:
+    app: contact-backend
+  ports:
+    - port: 8080
+      targetPort: 8080

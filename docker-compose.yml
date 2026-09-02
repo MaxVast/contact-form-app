@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: contact
+      POSTGRES_PASSWORD: contact
+      POSTGRES_DB: contact_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contact -d contact_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  contact-backend:
+    build: ./backend
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
+      CORS_ORIGIN: "http://localhost:5173"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  contact-frontend:
+    build: ./frontend
+    ports:
+      - "8081:8080"
+    depends_on:
+      - contact-backend
+
+volumes:
+  pgdata:

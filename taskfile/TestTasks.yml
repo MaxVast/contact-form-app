@@ -1,0 +1,16 @@
+version: '3'
+
+tasks:
+  test-backend:
+    desc: "Tests Go avec couverture"
+    dir: backend
+    cmds:
+      - mkdir -p ../reports
+      - go test ./... -v -coverprofile=../reports/backend-coverage.out
+
+  test-frontend:
+    desc: "Tests front (Vitest) avec couverture"
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run test -- --coverage

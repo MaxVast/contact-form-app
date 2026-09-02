@@ -1,0 +1,44 @@
+version: '3'
+
+tasks:
+  install:
+    desc: "Build et démarre tous les services en arrière-plan"
+    cmds:
+      - docker-compose up -d --build
+
+  up:
+    desc: 'Run docker containers.'
+    cmds:
+      - docker-compose up -d --remove-orphans
+
+  down:
+    desc: "Arrête et supprime tous les services (avec les volumes)"
+    cmds:
+      - docker-compose down -v
+
+  stop:
+    desc: 'Stop docker containers.'
+    cmds:
+      - docker-compose down --remove-orphans
+
+  restart:
+    desc: 'Relaunch docker containers.'
+    cmds:
+      - task: down
+      - task: up
+      - task: ps
+
+  build:
+    desc: 'Run docker build.'
+    cmds:
+      - docker-compose build {{.CLI_ARGS}}
+
+  logs:
+    desc: "Display container's logs."
+    cmds:
+      - docker-compose logs {{.CLI_ARGS}}
+
+  ps:
+    desc: 'Show docker processes.'
+    cmds:
+      - docker-compose ps
