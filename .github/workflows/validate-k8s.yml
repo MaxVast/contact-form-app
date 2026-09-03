@@ -61,7 +61,6 @@ jobs:
 
       - name: Build images inside minikube's docker env
         run: |
-          eval $(minikube docker-env)
           minikube image build -t contact-backend:ci ./backend
           minikube image build -t contact-frontend:ci ./frontend
 
@@ -81,7 +80,7 @@ jobs:
       - name: Deploy application chart
         run: |
           eval $(minikube docker-env)
-          helm install contact-form ./k8s/contact-form-app \
+          helm upgrade --install contact-form ./k8s/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=ci \
             --set backend.image.pullPolicy=Never \
@@ -89,88 +88,102 @@ jobs:
             --set frontend.image.tag=ci \
             --set frontend.image.pullPolicy=Never
 
+      - name: Show deployed images
+        run: |
+          kubectl get deployment contact-backend \
+            -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+
+          kubectl get deployment contact-frontend \
+            -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+
       - name: Wait for pods to be ready
         run: |
           kubectl rollout status deployment/contact-backend --timeout=90s || {
-            kubectl describe pod -l app=contact-backend
-            kubectl logs -l app=contact-backend
+            echo "❌ Backend deployment failed"
+            kubectl get pods -l app=contact-backend -o wide
+            kubectl describe pods -l app=contact-backend
+            kubectl get events --sort-by=.lastTimestamp
+            kubectl logs deployment/contact-backend --all-containers=true
             exit 1
           }
 
           kubectl rollout status deployment/contact-frontend --timeout=90s || {
-            kubectl describe pod -l app=contact-frontend
-            kubectl logs -l app=contact-frontend
+            echo "❌ Frontend deployment failed"
+            kubectl get pods -l app=contact-frontend -o wide
+            kubectl describe pods -l app=contact-frontend
+            kubectl get events --sort-by=.lastTimestamp
+            kubectl logs deployment/contact-frontend --all-containers=true
             exit 1
           }
 
-      - name: Check backend health
-        run: |
-          kubectl port-forward service/contact-backend 8080:8080 &
-          PF_PID=$!
+          - name: Check backend health
+            run: |
+              kubectl port-forward service/contact-backend 8080:8080 &
+              PF_PID=$!
 
-          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+              trap 'kill $PF_PID 2>/dev/null || true' EXIT
 
-          sleep 3
+              sleep 3
 
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-            http://localhost:8080/health)
+              HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+                http://localhost:8080/health)
 
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Backend health check OK"
-            exit 0
-          fi
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Backend health check OK"
+                exit 0
+              fi
 
-          echo "Backend health check failed with HTTP $HTTP_CODE"
+              echo "Backend health check failed with HTTP $HTTP_CODE"
 
-          kubectl get pods -l app=contact-backend -o wide
-          kubectl logs deployment/contact-backend
+              kubectl get pods -l app=contact-backend -o wide
+              kubectl logs deployment/contact-backend
 
-          exit 1
+              exit 1
 
-      - name: Check backend readiness
-        run: |
-          kubectl port-forward service/contact-backend 8080:8080 &
-          PF_PID=$!
+          - name: Check backend readiness
+            run: |
+              kubectl port-forward service/contact-backend 8080:8080 &
+              PF_PID=$!
 
-          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+              trap 'kill $PF_PID 2>/dev/null || true' EXIT
 
-          sleep 3
+              sleep 3
 
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-            http://localhost:8080/ready)
+              HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+                http://localhost:8080/ready)
 
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Backend readiness check OK"
-            exit 0
-          fi
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Backend readiness check OK"
+                exit 0
+              fi
 
-          echo "Backend readiness check failed with HTTP $HTTP_CODE"
+              echo "Backend readiness check failed with HTTP $HTTP_CODE"
 
-          kubectl get pods -l app=contact-backend -o wide
-          kubectl logs deployment/contact-backend
+              kubectl get pods -l app=contact-backend -o wide
+              kubectl logs deployment/contact-backend
 
-          exit 1
+              exit 1
 
-      - name: Check frontend homepage
-        run: |
-          kubectl port-forward service/contact-frontend 8081:8080 &
-          PF_PID=$!
+          - name: Check frontend homepage
+            run: |
+              kubectl port-forward service/contact-frontend 8081:8080 &
+              PF_PID=$!
 
-          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+              trap 'kill $PF_PID 2>/dev/null || true' EXIT
 
-          sleep 3
+              sleep 3
 
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-            http://localhost:8081/)
+              HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+                http://localhost:8081/)
 
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Frontend homepage check OK"
-            exit 0
-          fi
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Frontend homepage check OK"
+                exit 0
+              fi
 
-          echo "Frontend homepage check failed with HTTP $HTTP_CODE"
+              echo "Frontend homepage check failed with HTTP $HTTP_CODE"
 
-          kubectl get pods -l app=contact-frontend -o wide
-          kubectl logs deployment/contact-frontend
+              kubectl get pods -l app=contact-frontend -o wide
+              kubectl logs deployment/contact-frontend
 
-          exit 1
+              exit 1
