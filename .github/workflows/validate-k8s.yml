@@ -62,8 +62,12 @@ jobs:
       - name: Build images inside minikube's docker env
         run: |
           eval $(minikube docker-env)
-          docker build -t contact-backend:ci ./backend
-          docker build -t contact-frontend:ci ./frontend
+          minikube image build -t contact-backend:ci ./backend
+          minikube image build -t contact-frontend:ci ./frontend
+
+      - name: Check Minikube images
+        run: |
+          minikube image ls | grep contact-form
 
       - name: Deploy Postgres
         run: |
