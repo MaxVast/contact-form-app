@@ -32,7 +32,7 @@ spec:
             - containerPort: 5432
           envFrom:
             - secretRef:
-                name: postgres-credentials
+                name: postgres-secret-form-app
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata

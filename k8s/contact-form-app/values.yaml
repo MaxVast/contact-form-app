@@ -6,7 +6,7 @@ backend:
     pullPolicy: IfNotPresent
   port: 8080
   corsOrigin: "http://contact.example.com"
-  existingSecret: postgres-credentials
+  existingSecret: postgres-secret-form-app
   resources:
     requests:
       cpu: 100m
