@@ -28,13 +28,13 @@ spec:
                 name: {{ .Values.backend.existingSecret }}
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: {{ .Values.backend.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: {{ .Values.backend.port }}
             initialDelaySeconds: 10
             periodSeconds: 20

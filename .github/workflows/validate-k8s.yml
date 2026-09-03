@@ -102,3 +102,75 @@ jobs:
             kubectl logs -l app=contact-frontend
             exit 1
           }
+
+      - name: Check backend health
+        run: |
+          kubectl port-forward service/contact-backend 8080:8080 &
+          PF_PID=$!
+
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+          sleep 3
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/health)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Backend health check OK"
+            exit 0
+          fi
+
+          echo "Backend health check failed with HTTP $HTTP_CODE"
+
+          kubectl get pods -l app=contact-backend -o wide
+          kubectl logs deployment/contact-backend
+
+          exit 1
+
+      - name: Check backend readiness
+        run: |
+          kubectl port-forward service/contact-backend 8080:8080 &
+          PF_PID=$!
+
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+          sleep 3
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            http://localhost:8080/ready)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Backend readiness check OK"
+            exit 0
+          fi
+
+          echo "Backend readiness check failed with HTTP $HTTP_CODE"
+
+          kubectl get pods -l app=contact-backend -o wide
+          kubectl logs deployment/contact-backend
+
+          exit 1
+
+      - name: Check frontend homepage
+        run: |
+          kubectl port-forward service/contact-frontend 8081:8080 &
+          PF_PID=$!
+
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+          sleep 3
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            http://localhost:8081/)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Frontend homepage check OK"
+            exit 0
+          fi
+
+          echo "Frontend homepage check failed with HTTP $HTTP_CODE"
+
+          kubectl get pods -l app=contact-frontend -o wide
+          kubectl logs deployment/contact-frontend
+
+          exit 1
