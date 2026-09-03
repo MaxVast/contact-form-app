@@ -1,87 +1,91 @@
 name: build and test
-
 on:
   pull_request:
     branches:
       - develop
-
 env:
   APP_ENV: test
-
 jobs:
-  build-and-test:
+  Build:
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Cache Go dependencies
+        uses: actions/cache@v5
+        env:
+          CACHE_NAME: cache-go-modules
+        with:
+          path: |
+            ~/go/pkg/mod
+          key: ${{ env.CACHE_NAME }}-${{ hashFiles('backend/go.sum') }}
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v5
+        env:
+          CACHE_NAME: cache-npm-modules
+        with:
+          path: |
+            frontend/node_modules
+          key: ${{ env.CACHE_NAME }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install docker-compose
+        run: |
+          sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose version
 
       - name: Install Task
         uses: arduino/setup-task@v1
 
-      - name: Start application
+      - name: Run App
         run: task install
 
-      - name: Show containers
-        run: task ps
-
-      - name: Wait for backend
+      - name: Wait for service
         run: |
-          for i in {1..30}; do
-            STATUS=$(docker inspect \
-              --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" \
-              "$(docker-compose ps -q contact-backend)")
-
-            case "$STATUS" in
-              starting)
-                echo "Backend starting..."
-                sleep 2
-                ;;
-              healthy)
-                echo "Backend healthy"
-                exit 0
-                ;;
-              unhealthy)
-                echo "Backend unhealthy"
-                docker-compose logs contact-backend
-                exit 1
-                ;;
-              *)
-                echo "Backend status: $STATUS"
-                sleep 2
-                ;;
-            esac
+          while status="$(docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" "$(docker-compose ps -q contact-backend)")"; do
+          case $status in
+           starting) sleep 1;;
+           healthy) exit 0;;
+           unhealthy)
+             docker-compose ps
+             docker-compose logs contact-backend
+             exit 1
+           ;;
+          esac
           done
+          exit 1
 
-          echo "Backend did not become healthy"
-          docker-compose ps
+      - name: Check App
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}\n' 'http://localhost:8080/health')
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
+          fi
           docker-compose logs contact-backend
           exit 1
 
-      - name: Check health
+      - name: Check Database
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost:8080/healthz)
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Health check failed with HTTP $HTTP_CODE"
-            docker-compose logs contact-backend
-            exit 1
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}\n' 'http://localhost:8080/ready')
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
           fi
+          docker-compose logs contact-backend
+          exit 1
 
-      - name: Check readiness
-        run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost:8080/readyz)
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Readiness check failed with HTTP $HTTP_CODE"
-            docker-compose logs contact-backend
-            exit 1
-          fi
-
-      - name: Run tests
+      - name: Run Tests
         run: task ci
 
       - name: Archive code coverage results
