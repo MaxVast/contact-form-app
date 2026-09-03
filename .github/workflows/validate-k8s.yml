@@ -83,10 +83,10 @@ jobs:
           eval $(minikube docker-env)
           helm install contact-form ./k8s/contact-form-app \
             --set backend.image.repository=contact-backend \
-            --set backend.image.tag=local \
+            --set backend.image.tag=ci \
             --set backend.image.pullPolicy=Never \
             --set frontend.image.repository=contact-frontend \
-            --set frontend.image.tag=local \
+            --set frontend.image.tag=ci \
             --set frontend.image.pullPolicy=Never
 
       - name: Wait for pods to be ready
