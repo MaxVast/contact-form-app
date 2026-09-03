@@ -3,10 +3,10 @@ backend:
   image:
     repository: ghcr.io/maxvast/contact-form-backend
     tag: "latest"
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
   port: 8080
   corsOrigin: "http://contact.example.com"
-  existingSecret: postgres-secret-form-app
+  existingSecret: backend-form-app-secret
   resources:
     requests:
       cpu: 100m
@@ -20,7 +20,7 @@ frontend:
   image:
     repository: ghcr.io/maxvast/contact-form-frontend
     tag: "latest"
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
   port: 8080
   resources:
     requests:

@@ -70,13 +70,8 @@ jobs:
 
       - name: Deploy Postgres
         run: |
-          kubectl create secret generic postgres-secret-form-app \
-            --from-literal=POSTGRES_DB=contact_db \
-            --from-literal=POSTGRES_USER=contact \
-            --from-literal=POSTGRES_PASSWORD=contact
-          kubectl -n contact-form create secret generic backend-form-app-secret --from-literal=DATABASE_URL="postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
+          kubectl create secret generic backend-form-app-secret --from-literal=DATABASE_URL="postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
           kubectl apply -f k8s/database/postgres.yaml
-          kubectl apply -n contact-form -f k8s/postgres/statefulset.yaml -f k8s/postgres/service.yaml
           kubectl rollout status deployment/postgres --timeout=90s
 
       - name: Deploy application chart
@@ -86,7 +81,7 @@ jobs:
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=ci \
             --set backend.image.pullPolicy=Never \
-            --set backend.existingSecret=postgres-secret-form-app \
+            --set backend.existingSecret=backend-form-app-secret \
             --set frontend.image.repository=contact-frontend \
             --set frontend.image.tag=ci \
             --set frontend.image.pullPolicy=Never
