@@ -1,0 +1,17 @@
+version: '3'
+
+tasks:
+  fmt:
+    desc: 'Format project Go'
+    dir: backend
+    cmds:
+      - docker-compose up -d go
+      - docker-compose exec go go fmt ./...
+
+
+  vet:
+    desc: 'Check project Go'
+    dir: backend
+    cmds:
+      - docker-compose up -d go
+      - docker-compose exec go go vet ./...

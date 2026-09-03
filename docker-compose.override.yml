@@ -1,0 +1,22 @@
+services:
+  go:
+    image: golang:1.22-alpine
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    command: ["tail", "-f", "/dev/null"]
+
+  node:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - node-modules:/app/node_modules
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  go-mod-cache:
+  go-build-cache:
+  node-modules:

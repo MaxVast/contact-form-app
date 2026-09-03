@@ -1,8 +1,8 @@
 version: '3'
 
 tasks:
-  install:
-    desc: "Build et démarre tous les services en arrière-plan"
+  build:
+    desc: "Build et démarre les services"
     cmds:
       - docker-compose up -d --build
 
@@ -11,15 +11,20 @@ tasks:
     cmds:
       - docker-compose up -d --remove-orphans
 
-  down:
-    desc: "Arrête et supprime tous les services (avec les volumes)"
-    cmds:
-      - docker-compose down -v
-
   stop:
-    desc: 'Stop docker containers.'
+    desc: "Arrête les conteneurs"
+    cmds:
+      - docker-compose stop
+
+  down:
+    desc: "Arrête et supprime les conteneurs"
     cmds:
       - docker-compose down --remove-orphans
+
+  clean:
+    desc: "Supprime les conteneurs et les volumes"
+    cmds:
+      - docker-compose down -v --remove-orphans
 
   restart:
     desc: 'Relaunch docker containers.'
@@ -28,10 +33,17 @@ tasks:
       - task: up
       - task: ps
 
-  build:
-    desc: 'Run docker build.'
+  build:backend:
+    desc: 'Run backend'
     cmds:
-      - docker-compose build {{.CLI_ARGS}}
+      - docker-compose up -d go
+      - docker-compose exec go sh -c "go build ./..."
+
+  build:frontend:
+  desc: "Build frontend"
+  cmds:
+    - docker-compose up -d node
+    - docker-compose exec node sh -c "npm run build"
 
   logs:
     desc: "Display container's logs."
@@ -42,3 +54,25 @@ tasks:
     desc: 'Show docker processes.'
     cmds:
       - docker-compose ps
+
+  go:
+    desc: "Ouvre un shell dans le conteneur Go"
+    cmds:
+      - docker-compose up -d go
+      - docker-compose exec go sh
+
+  node:
+    desc: "Ouvre un shell dans le conteneur Node"
+    cmds:
+      - docker-compose up -d node
+      - docker-compose exec node sh
+
+  stop:dev:
+    desc: "Arrête les conteneurs Go et Node"
+    cmds:
+      - docker-compose stop go node
+
+  down:dev:
+    desc: "Arrête et supprime les conteneurs Go et Node"
+    cmds:
+      - docker-compose rm -sf go node
