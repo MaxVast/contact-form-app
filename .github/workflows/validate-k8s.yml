@@ -12,6 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Helm lint
+        run: helm lint --strict ./k8s/contact-form-app
+
       - name: Install kubeconform
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
@@ -19,4 +25,22 @@ jobs:
 
       - name: Render and validate manifests with kubeconform
         run: |
-          kubeconform -strict -summary
+          helm template contact-form-app ./k8s/contact-form-app | kubeconform -strict -summary
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Deploy to kind (structural smoke test)
+        run: |
+          kubectl create secret generic postgres-credentials \
+            --from-literal=POSTGRES_DB=test \
+            --from-literal=POSTGRES_USER=test \
+            --from-literal=POSTGRES_PASSWORD=test
+          helm install contact-form ./k8s/contact-form-app \
+            --namespace contact-form \
+            --set backend.image.repository=contact-backend \
+            --set backend.image.tag=local \
+            --set backend.image.pullPolicy=Never \
+            --set frontend.image.repository=contact-frontend \
+            --set frontend.image.tag=local \
+            --set frontend.image.pullPolicy=Never

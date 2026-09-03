@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact-frontend
+  labels:
+    app: contact-frontend
+    {{- include "contact-form-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: contact-frontend
+  template:
+    metadata:
+      labels:
+        app: contact-frontend
+    spec:
+      containers:
+        - name: contact-frontend
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.port }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.port }}
+            initialDelaySeconds: 3
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

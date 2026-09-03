@@ -12,34 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Cache Go dependencies
-        uses: actions/cache@v5
-        env:
-          CACHE_NAME: cache-go-modules
-        with:
-          path: |
-            ~/go/pkg/mod
-          key: ${{ env.CACHE_NAME }}-${{ hashFiles('backend/go.sum') }}
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v5
-        env:
-          CACHE_NAME: cache-npm-modules
-        with:
-          path: |
-            frontend/node_modules
-          key: ${{ env.CACHE_NAME }}-${{ hashFiles('frontend/package-lock.json') }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Install docker-compose
         run: |
           sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
