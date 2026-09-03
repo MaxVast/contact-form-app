@@ -67,7 +67,7 @@ jobs:
 
       - name: Check Minikube images
         run: |
-          minikube image ls | grep contact-form
+          minikube image ls | grep contact
 
       - name: Deploy Postgres
         run: |
