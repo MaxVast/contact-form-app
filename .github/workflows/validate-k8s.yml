@@ -37,7 +37,6 @@ jobs:
             --from-literal=POSTGRES_USER=test \
             --from-literal=POSTGRES_PASSWORD=test
           helm install contact-form ./k8s/contact-form-app \
-            --namespace contact-form \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=local \
             --set backend.image.pullPolicy=Never \
