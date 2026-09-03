@@ -100,16 +100,9 @@ nvm install   # lit frontend/.nvmrc
 nvm use 22.22
 ```
 
-
 ## Déployer sur Kubernetes
 
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/postgres/
-kubectl apply -f k8s/backend/
-kubectl apply -f k8s/frontend/
-kubectl apply -f k8s/ingress.yaml
-```
+
 
 Pense à :
 - remplacer `ghcr.io/OWNER/...` dans `k8s/backend/deployment.yaml` et
@@ -118,6 +111,60 @@ Pense à :
   `k8s/backend/secret.yaml` (idéalement via un outil comme Sealed
   Secrets ou un secret manager, pas en clair dans le repo) ;
 - adapter `host: contact.example.com` dans `k8s/ingress.yaml`.
+
+## Déployer en local (minikube) sans utilisation de  Helm
+
+# 1. Démarrer minikube et builder les images dans son environnement
+```bash
+minikube start
+eval $(minikube docker-env)
+
+minikube image build -t contact-backend:local ./backend
+minikube image build -t contact-frontend:local ./frontend
+```
+# 2. Déploiement des manifests
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/postgres/
+kubectl apply -f k8s/backend/
+kubectl apply -f k8s/frontend/
+kubectl apply -f k8s/ingress.yaml
+```
+
+# 3. Créer le namespace et les secrets, puis déployer la base de données
+```bash
+kubectl create namespace contact-form
+kubectl -n contact-form create secret generic postgres-secret-form-app \
+--from-literal=POSTGRES_USER=contact \
+--from-literal=POSTGRES_PASSWORD=<mot_de_passe> \
+--from-literal=POSTGRES_DB=contact_db
+kubectl -n contact-form create secret generic backend-form-app-secret \
+--from-literal=DATABASE_URL="postgres://contact:<mot_de_passe>@postgres:5432/contact_db?sslmode=disable"
+kubectl apply -n contact-form -f k8s/postgres/statefulset.yaml -f k8s/postgres/service.yaml
+```
+
+# 4. Pointage sur les images locales (aucun pull réseau)
+```bash
+kubectl -n contact-form set image deployment/contact-backend contact-backend=contact-backend:local
+kubectl -n contact-form set image deployment/contact-frontend contact-frontend=contact-frontend:local
+kubectl -n contact-form patch deployment contact-backend --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Never"}]' 2>/dev/null || true
+kubectl -n contact-form patch deployment contact-frontend --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Never"}]' 2>/dev/null || true
+```
+
+# 5. Attente que tout soit prêt (timeout 2 min)
+```bash
+kubectl -n contact-form rollout status deployment/contact-backend --timeout=120s
+kubectl -n contact-form rollout status deployment/contact-frontend --timeout=120s
+```
+
+# 6. Accéder à l'application (port-forward)
+```bash
+kubectl -n contact-form port-forward service/contact-frontend 8080:8080
+```
+# puis ouvrir http://localhost:8080/
+
 
 ## CI/CD
 
