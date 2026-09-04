@@ -3,7 +3,7 @@ backend:
   image:
     repository: ghcr.io/maxvast/contact-form-backend
     tag: "latest"
-    pullPolicy: Never
+    pullPolicy: IfNotPresent
   port: 8080
   corsOrigin: "http://contact.example.com"
   existingSecret: backend-form-app-secret
@@ -20,7 +20,7 @@ frontend:
   image:
     repository: ghcr.io/maxvast/contact-form-frontend
     tag: "latest"
-    pullPolicy: Never
+    pullPolicy: IfNotPresent
   port: 8080
   resources:
     requests:

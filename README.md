@@ -101,9 +101,11 @@ nvm use 22.22
 ```
 
 ## Déployer sur Kubernetes
-
-
-
+Deux façons équivalentes de déployer backend + frontend + Ingress :
+manifests YAML bruts (`k8s/backend/`, `k8s/frontend/`, `k8s/ingress.yaml`, `k8s/postgres/`)
+ou chart Helm (`helm/contact-form-app/`). Postgres, lui, est toujours un
+manifest propre à lui (`helm/database`).
+--------------------
 Pense à :
 - remplacer `ghcr.io/OWNER/...` dans `k8s/backend/deployment.yaml` et
   `k8s/frontend/deployment.yaml` par ton propre repo GHCR ;
@@ -112,7 +114,7 @@ Pense à :
   Secrets ou un secret manager, pas en clair dans le repo) ;
 - adapter `host: contact.example.com` dans `k8s/ingress.yaml`.
 
-## Déployer en local (minikube) sans utilisation de  Helm
+## Option A - sans Helm (manifests bruts)
 
 # 1. Démarrer minikube et builder les images dans son environnement
 ```bash
@@ -134,11 +136,11 @@ kubectl apply -f k8s/ingress.yaml
 # 3. Créer le namespace et les secrets, puis déployer la base de données
 ```bash
 kubectl create namespace contact-form
-kubectl -n contact-form create secret generic postgres-secret-form-app \
+kubectl -n contact-form create secret generic postgres-secret \
 --from-literal=POSTGRES_USER=contact \
 --from-literal=POSTGRES_PASSWORD=<mot_de_passe> \
 --from-literal=POSTGRES_DB=contact_db
-kubectl -n contact-form create secret generic backend-form-app-secret \
+kubectl -n contact-form create secret generic backend-secret \
 --from-literal=DATABASE_URL="postgres://contact:<mot_de_passe>@postgres:5432/contact_db?sslmode=disable"
 kubectl apply -n contact-form -f k8s/postgres/statefulset.yaml -f k8s/postgres/service.yaml
 ```
@@ -159,27 +161,107 @@ kubectl -n contact-form rollout status deployment/contact-backend --timeout=120s
 kubectl -n contact-form rollout status deployment/contact-frontend --timeout=120s
 ```
 
-# 6. Accéder à l'application (port-forward)
+## Option B - avec Helm
+# 1. Namespace + secrets (noms attendus par les fichiers du repo ; adapte-les si tu les as personnalisés dans ton values.yaml)
+```bash
+kubectl create namespace contact-form
+
+kubectl -n contact-form create secret generic postgres-secret-form-app \
+  --from-literal=POSTGRES_USER=contact \
+  --from-literal=POSTGRES_PASSWORD=devlocal \
+  --from-literal=POSTGRES_DB=contact_db
+
+kubectl -n contact-form create secret generic backend-form-app-secret \
+  --from-literal=DATABASE_URL="postgres://contact:devlocal@postgres:5432/contact_db?sslmode=disable"
+```
+# 2. Base de données (toujours en manifest brut, même en mode Helm)
+```bash
+kubectl apply -f helm/database/postgres.yaml
+```
+# 3. Backend + frontend, avec les images locales
+```bash
+helm upgrade --install contact-form ./k8s/contact-form-app \
+  --namespace contact-form \
+  --set backend.image.repository=contact-backend \
+  --set backend.image.tag=local \
+  --set backend.image.pullPolicy=Never \
+  --set backend.existingSecret=backend-form-app-secret \
+  --set frontend.image.repository=contact-frontend \
+  --set frontend.image.tag=local \
+  --set frontend.image.pullPolicy=Never
+```
+# Accéder à l'application (port-forward)
+**Le plus simple — port-forward direct** :
 ```bash
 kubectl -n contact-form port-forward service/contact-frontend 8080:8080
 ```
-# puis ouvrir http://localhost:8080/
+puis ouvrir http://localhost:8080/
 
+
+**Plus proche de la prod — via l'Ingress**, pour tester le chemin
+complet navigateur → Ingress → Service → Pod :
+```bash
+minikube addons enable ingress
+minikube tunnel   # dans un terminal séparé, laisse tourner (demande sudo)
+```
+Dans un autre terminal, vérifie que l'Ingress a bien une adresse :
+```bash
+kubectl get ingress -n contact-form
+```
+Puis ajoute l'entrée DNS locale, avec le host défini dans
+`k8s/contact-form-app/values.yaml` (`contact.example.com` par défaut) :
+```bash
+echo "$(minikube ip) contact.example.com" | sudo tee -a /etc/hosts
+```
+
+> **Sous WSL** : si tu ouvres le navigateur depuis **Windows** et non
+> depuis WSL, l'`/etc/hosts` modifié ci-dessus (celui de WSL) est
+> invisible pour Windows — tu auras `DNS_PROBE_FINISHED_NXDOMAIN`.
+> Ajoute la même ligne dans
+> `C:\Windows\System32\drivers\etc\hosts` (Bloc-notes en admin), ou
+> vérifie d'abord sans toucher aux hosts avec :
+> ```bash
+> curl -H "Host: contact.example.com" http://$(minikube ip)/
+> ```
+> Si ça renvoie le HTML de la page, l'Ingress fonctionne — le souci
+> n'est alors que la résolution DNS côté navigateur.
+
+`minikube image build` fonctionne quel que soit le runtime de minikube
+(docker ou containerd) — vérifiable avec `minikube profile list`.
+
+Pour tout supprimer et repartir de zéro :
+```bash
+# avec Helm
+helm uninstall contact-form --namespace contact-form
+# sans Helm
+kubectl delete -f k8s/backend/ -f k8s/frontend/ -f k8s/ingress.yaml
+# dans tous les cas
+kubectl delete namespace contact-form
+```
 
 ## CI/CD
 
-`.github/workflows/ci-cd.yml` :
-1. `go vet` + `go build` sur chaque push/PR ;
-2. sur `main` : build & push des deux images Docker vers GHCR ;
-3. déploiement sur le cluster via `kubectl` (nécessite un secret de
-   repo `KUBE_CONFIG`, même principe que pour le cluster GKE de
-   shop-menace-kult).
+`.github/workflows/build-and-test.yml` :
+1. Sur chaque PR, l'application est build;
+2. L'application est lancé et testé par différent endpoints :
+   1. Pour le back-end : `/health`, `/ready`;
+   2. Pour le front-end: `/`;
+3. Les lint, format et tests sont lancé
+4. Tous les conteneurs sont arrêté
+
+`.github/workflows/validate-k8s.yml` :
+1. Sur chaque PR, l'application est lint et test avec Helm et kubeconform;
+2. Un deploiement est réalisé en structure smoke  test
+3. Les images sont build
+4. Postgres est déployé avec les charts Helm
+5. L'application est déployé avec les charts Helm
+6. Redémarrage des pods
+7. L'application est lancé et testé par différent endpoints via l'igress Helm:
+    1. Pour le back-end : `/health`, `/ready`;
+    2. Pour le front-end: `/`;
 
 ## Pistes d'évolution
-
 - tests d'intégration (vraie base Postgres via testcontainers) ;
-- Helm chart au lieu des manifests YAML bruts, pour templatiser
-  images/hosts/secrets entre environnements ;
 - rate limiting sur `/api/contact` (anti-spam) ;
 - notification par email en découplant via une file (NATS/RabbitMQ) et
   un second microservice.

@@ -32,14 +32,17 @@ jobs:
 
       - name: Deploy to kind (structural smoke test)
         run: |
-          kubectl create secret generic postgres-credentials \
-            --from-literal=POSTGRES_DB=test \
+          kubectl create secret generic postgres-credentials-test \
+            --from-literal=POSTGRES_DB=test_db \
             --from-literal=POSTGRES_USER=test \
             --from-literal=POSTGRES_PASSWORD=test
+          kubectl create secret generic backend-form-app-secret-test \
+            --from-literal=DATABASE_URL="postgres://test:test@postgres:5432/test_db?sslmode=disable"
           helm install contact-form ./helm/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=local \
             --set backend.image.pullPolicy=Never \
+            --set backend.existingSecret=backend-form-app-secret-test \
             --set frontend.image.repository=contact-frontend \
             --set frontend.image.tag=local \
             --set frontend.image.pullPolicy=Never
@@ -81,7 +84,6 @@ jobs:
 
       - name: Deploy application chart
         run: |
-          eval $(minikube docker-env)
           helm upgrade --install contact-form ./helm/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=ci \
