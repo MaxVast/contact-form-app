@@ -16,7 +16,7 @@ jobs:
         uses: azure/setup-helm@v5
 
       - name: Helm lint
-        run: helm lint --strict ./k8s/contact-form-app
+        run: helm lint --strict ./helm/contact-form-app
 
       - name: Install kubeconform
         run: |
@@ -25,7 +25,7 @@ jobs:
 
       - name: Render and validate manifests with kubeconform
         run: |
-          helm template contact-form-app ./k8s/contact-form-app | kubeconform -strict -summary
+          helm template contact-form-app ./helm/contact-form-app | kubeconform -strict -summary
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
@@ -36,7 +36,7 @@ jobs:
             --from-literal=POSTGRES_DB=test \
             --from-literal=POSTGRES_USER=test \
             --from-literal=POSTGRES_PASSWORD=test
-          helm install contact-form ./k8s/contact-form-app \
+          helm install contact-form ./helm/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=local \
             --set backend.image.pullPolicy=Never \
@@ -74,14 +74,15 @@ jobs:
             --from-literal=POSTGRES_DB=contact_db \
             --from-literal=POSTGRES_USER=contact \
             --from-literal=POSTGRES_PASSWORD=contact
-          kubectl create secret generic backend-form-app-secret --from-literal=DATABASE_URL="postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
-          kubectl apply -f k8s/database/postgres.yaml
+          kubectl create secret generic backend-form-app-secret \
+          --from-literal=DATABASE_URL="postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
+          kubectl apply -f helm/database/postgres.yaml
           kubectl rollout status deployment/postgres --timeout=90s
 
       - name: Deploy application chart
         run: |
           eval $(minikube docker-env)
-          helm upgrade --install contact-form ./k8s/contact-form-app \
+          helm upgrade --install contact-form ./helm/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=ci \
             --set backend.image.pullPolicy=Never \
