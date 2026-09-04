@@ -5,12 +5,14 @@ tasks:
     desc: "Tests Go avec couverture"
     dir: backend
     cmds:
-      - mkdir -p ../reports
-      - go test ./... -v -coverprofile=../reports/backend-coverage.out
+      - mkdir -p ./reports
+      - docker-compose up -d go
+      - docker-compose exec go sh -c "go test ./... -v -coverprofile=reports/backend-coverage.out"
 
   test-frontend:
     desc: "Tests front (Vitest) avec couverture"
     dir: frontend
     cmds:
-      - npm ci
-      - npm run test -- --coverage
+      - docker-compose up -d node
+      - docker-compose exec node sh -c "npm ci"
+      - docker-compose exec node sh -c "npm run test -- --coverage"

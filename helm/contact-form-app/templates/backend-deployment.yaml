@@ -2,9 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: contact-backend
-  namespace: contact-form
+  labels:
+    app: contact-backend
+    {{- include "contact-form-app.labels" . | nindent 4 }}
 spec:
-  replicas: 2
+  replicas: {{ .Values.backend.replicas }}
   selector:
     matchLabels:
       app: contact-backend
@@ -15,30 +17,26 @@ spec:
     spec:
       containers:
         - name: contact-backend
-          image: ghcr.io/maxvast/contact-form-backend:latest
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
-            - containerPort: 8080
+            - containerPort: {{ .Values.backend.port }}
           envFrom:
             - configMapRef:
                 name: backend-config
             - secretRef:
-                name: backend-secret
+                name: {{ .Values.backend.existingSecret }}
           readinessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: {{ .Values.backend.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: {{ .Values.backend.port }}
             initialDelaySeconds: 10
             periodSeconds: 20
           resources:
-            requests:
-              cpu: 100m
-              memory: 64Mi
-            limits:
-              cpu: 300m
-              memory: 256Mi
+            {{- toYaml .Values.backend.resources | nindent 12 }}

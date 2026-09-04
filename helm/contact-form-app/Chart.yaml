@@ -1,0 +1,6 @@
+apiVersion: v2
+name: contact-form-app
+description: Backend Go, frontend Vue.js et Ingress pour l'application de prise de contact
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

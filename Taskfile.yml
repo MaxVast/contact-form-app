@@ -3,13 +3,15 @@ version: '3'
 includes:
   docker: ./taskfile/DockerTasks.yml
   test: ./taskfile/TestTasks.yml
+  qa: ./taskfile/QualityTasks.yml
 
 tasks:
   install:
     desc: "Build et démarre tous les services en arrière-plan"
     cmds:
-      - task: docker:stop
-      - task: docker:install
+      - task: docker:down
+      - task: docker:build
+      - task: docker:stop:dev
       - task: docker:ps
 
   stop:
@@ -17,9 +19,11 @@ tasks:
     cmds:
       - task: docker:stop
 
-
   ci:
     desc: "Suite de tests complète (utilisée en CI)"
     cmds:
+      - task: qa:fmt
       - task: test:test-backend
+      - task: qa:vet
       - task: test:test-frontend
+      - task: docker:down:dev
