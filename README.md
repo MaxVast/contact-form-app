@@ -260,6 +260,11 @@ kubectl delete namespace contact-form
     1. Pour le back-end : `/health`, `/ready`;
     2. Pour le front-end: `/`;
 
+`.github/workflows/build-and-push.yml` :
+1. Connexion à ghcr.io
+2. Build and push backend image sur ghcr.io
+3. Build and push frontend image sur ghcr.io
+
 ## Pistes d'évolution
 - tests d'intégration (vraie base Postgres via testcontainers) ;
 - rate limiting sur `/api/contact` (anti-spam) ;
