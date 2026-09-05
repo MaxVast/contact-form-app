@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -13,11 +14,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/maxvast/contact-form-app/backend/internal/config"
 	"github.com/maxvast/contact-form-app/backend/internal/handler"
+	"github.com/maxvast/contact-form-app/backend/internal/observability"
 	"github.com/maxvast/contact-form-app/backend/internal/repository"
 	"github.com/maxvast/contact-form-app/backend/internal/service"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -49,20 +51,24 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{cfg.CORSOrigin},
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type"},
-		AllowCredentials: false,
-		MaxAge:           300,
-	}))
 
-	r.Get("/health", h.Health)
-	r.Get("/ready", h.Ready)
+	r.Handle("/metrics", promhttp.Handler())
 
-	r.Route("/api/contact", func(r chi.Router) {
-		r.Post("/", h.Create)
-		r.Get("/", h.List)
+	r.Group(func(r chi.Router) {
+		r.Use(observability.Metrics)
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   []string{cfg.CORSOrigin},
+			AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+			AllowedHeaders:   []string{"Content-Type"},
+			AllowCredentials: false,
+			MaxAge:           300,
+		}))
+		r.Get("/health", h.Health)
+		r.Get("/ready", h.Ready)
+		r.Route("/api/contact", func(r chi.Router) {
+			r.Post("/", h.Create)
+			r.Get("/", h.List)
+		})
 	})
 
 	srv := &http.Server{
@@ -73,7 +79,7 @@ func main() {
 
 	go func() {
 		log.Printf("contact-service démarré sur le port %s", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("erreur serveur: %v", err)
 		}
 	}()

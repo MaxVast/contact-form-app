@@ -1,0 +1,25 @@
+backend:
+  image:
+    repository: contact-backend
+    tag: local
+    pullPolicy: Never
+  existingSecret: backend-form-app-secret
+
+frontend:
+  image:
+    repository: contact-frontend
+    tag: local
+    pullPolicy: Never
+
+ingress:
+  enabled: true
+  className: nginx
+  host: contact-form.local
+
+  tls:
+    enabled: false
+
+metrics:
+  enabled: true
+  serviceMonitorLabels:
+    release: prometheus
