@@ -53,8 +53,7 @@ repository mocké, handlers HTTP avec `httptest`) :
 
 ```bash
 task install   # docker-compose up -d --build
-task ci        # tests backend + frontend, couverture dans reports/
-task down      # arrête et nettoie les conteneurs
+task ci        # tests backend + frontend, couverture dans reports/ et à la fin arrête et nettoie les conteneurs
 ```
 Ou directement, sans Task — backend (tests unitaires : validation du modèle, service avec un repository mocké, handlers HTTP avec httptest) :
 
@@ -73,10 +72,14 @@ npm run test
 Les deux sont exécutés automatiquement dans la CI (`test-backend` et
 `test-frontend`) avant tout build/push d'image.
 
-Deux workflows GitHub Actions sont fournis :
+Trois workflows GitHub Actions sont fournis :
 
-`.github/workflows/build-and-test.yml` — sur chaque PR vers `main` : task ci (tests backend + frontend, avec couverture archivée en artifact). Volontairement minimal : nos tests sont unitaires avec mocks, donc pas besoin de démarrer la stack Docker pour les faire tourner — contrairement à un projet où les tests s'exécutent contre l'app et sa base réellement démarrées.
-`.github/workflows/ci-cd.yml` — sur push vers `main` : build/push des images Docker vers GHCR puis déploiement Kubernetes. C'est ce job qui valide que les Dockerfiles buildent correctement (pas vérifié sur les PR, par choix de rapidité).
+`.github/workflows/build-and-test.yml` — sur chaque PR vers `develop` : Build de l'application (valide que les Dockerfiles buildent correctement), et lancement de  l'application (valide que l'application fonctionne correctement),
+vérification des principaux endpoints, et pour finir execution des tests avec: task ci (tests backend + frontend). Volontairement minimal : nos tests sont unitaires avec mocks, donc pas besoin de démarrer la stack Docker pour les faire tourner — contrairement à un projet où les tests s'exécutent contre l'app et sa base réellement démarrées.
+
+`.github/workflows/validate-k8s.yml` — sur chaque PR vers `develop` : La configuration Helm est lint et tester, ensuite un smoke test et  réaliser avant tout déploiement, dans le second jobs l'application est déployé avec Helm (Backend, Frontend & DB) sur kubernetes, et ensuite vérifié que l'application fonctionne correctement.
+
+`.github/workflows/build-and-push.yml` — sur push vers `main` : build/push des images Docker vers GHCR.
 
 ## Générer go.sum
 
@@ -96,15 +99,19 @@ générique (Ubuntu/WSL), Vite/Vitest peut échouer avec une erreur du
 type `crypto.getRandomValues is not a function`. Utilise `nvm` :
 
 ```bash
-nvm install   # lit frontend/.nvmrc
+cd frontend
+nvm install
 nvm use 22.22
 ```
+
+! Note importe le projet comporte des containers Docker avec les versions exact de Goland et de Node.js !
+
+Vous pouvez utiliser ces containers pour executer build, ci, format et etc
 
 ## Déployer sur Kubernetes
 Deux façons équivalentes de déployer backend + frontend + Ingress :
 manifests YAML bruts (`k8s/backend/`, `k8s/frontend/`, `k8s/ingress.yaml`, `k8s/postgres/`)
-ou chart Helm (`helm/contact-form-app/`). Postgres, lui, est toujours un
-manifest propre à lui (`helm/database`).
+ou chart Helm (`helm/contact-form-app/`) et une chart Helm pour Postgres (`helm/database`).
 --------------------
 Pense à :
 - remplacer `ghcr.io/OWNER/...` dans `k8s/backend/deployment.yaml` et
@@ -174,13 +181,13 @@ kubectl -n contact-form create secret generic postgres-secret-form-app \
 kubectl -n contact-form create secret generic backend-form-app-secret \
   --from-literal=DATABASE_URL="postgres://contact:devlocal@postgres:5432/contact_db?sslmode=disable"
 ```
-# 2. Base de données (toujours en manifest brut, même en mode Helm)
+# 2. Base de données
 ```bash
 kubectl apply -f helm/database/postgres.yaml
 ```
 # 3. Backend + frontend, avec les images locales
 ```bash
-helm upgrade --install contact-form ./k8s/contact-form-app \
+helm upgrade --install contact-form ./helm/contact-form-app \
   --namespace contact-form \
   --set backend.image.repository=contact-backend \
   --set backend.image.tag=local \
@@ -209,7 +216,7 @@ Dans un autre terminal, vérifie que l'Ingress a bien une adresse :
 kubectl get ingress -n contact-form
 ```
 Puis ajoute l'entrée DNS locale, avec le host défini dans
-`k8s/contact-form-app/values.yaml` (`contact.example.com` par défaut) :
+`helm/contact-form-app/values.yaml` (`contact.example.com` par défaut) :
 ```bash
 echo "$(minikube ip) contact.example.com" | sudo tee -a /etc/hosts
 ```
@@ -243,7 +250,7 @@ kubectl delete namespace contact-form
 
 `.github/workflows/build-and-test.yml` :
 1. Sur chaque PR, l'application est build;
-2. L'application est lancé et testé par différent endpoints :
+2. L'application est lancé et testé par différent endpoints:
    1. Pour le back-end : `/health`, `/ready`;
    2. Pour le front-end: `/`;
 3. Les lint, format et tests sont lancé
@@ -251,12 +258,12 @@ kubectl delete namespace contact-form
 
 `.github/workflows/validate-k8s.yml` :
 1. Sur chaque PR, l'application est lint et test avec Helm et kubeconform;
-2. Un deploiement est réalisé en structure smoke  test
+2. Un deploiement est réalisé en structure smoke test
 3. Les images sont build
 4. Postgres est déployé avec les charts Helm
 5. L'application est déployé avec les charts Helm
 6. Redémarrage des pods
-7. L'application est lancé et testé par différent endpoints via l'igress Helm:
+7. L'application est lancé et testé par différent endpoints:
     1. Pour le back-end : `/health`, `/ready`;
     2. Pour le front-end: `/`;
 
@@ -266,7 +273,15 @@ kubectl delete namespace contact-form
 3. Build and push frontend image sur ghcr.io
 
 ## Pistes d'évolution
-- tests d'intégration (vraie base Postgres via testcontainers) ;
-- rate limiting sur `/api/contact` (anti-spam) ;
-- notification par email en découplant via une file (NATS/RabbitMQ) et
+- [ ] workflow github pour déploiement sur GCP/GKE
+- [ ] ajout d'un outil d'observabilité comme Prometheus & Grafana
+- [ ] tests d'intégration (vraie base Postgres via testcontainers) ;
+- [ ] rate limiting sur `/api/contact` (anti-spam) ;
+- [ ] notification par email en découplant via une file (NATS/RabbitMQ) et
   un second microservice.
+- [ ] ajout d'un model user
+- [ ] ajout d'une page de connexion
+- [ ] ajout d'une connexion avec JWT
+- [ ] ajout d'un back-office
+- [ ] changer le (framework `chi`) par `gin`
+- [ ] ajouter un orm (exemple `gorm`)
