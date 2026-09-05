@@ -35,6 +35,10 @@ ingress:
   className: nginx
   host: contact-form-app.com
 
+  tls:
+    enabled: true
+    secretName: contact-form-tls
+
 metrics:
   enabled: false
   serviceMonitorLabels:

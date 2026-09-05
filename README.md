@@ -233,7 +233,7 @@ echo "$(minikube ip) contact.example.com" | sudo tee -a /etc/hosts
 Pour tout supprimer et repartir de zéro :
 ```bash
 # avec Helm
-helm uninstall contact-form --namespace contact-form
+helm uninstall contact-form-app --namespace contact-form
 # sans Helm
 kubectl delete -f k8s/backend/ -f k8s/frontend/ -f k8s/ingress.yaml
 # dans tous les cas
