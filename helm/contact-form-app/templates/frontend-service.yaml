@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: contact-frontend
   labels:
+    app: contact-frontend
     {{- include "contact-form-app.labels" . | nindent 4 }}
 spec:
   selector:

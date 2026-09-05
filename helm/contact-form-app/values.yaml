@@ -34,3 +34,8 @@ ingress:
   enabled: true
   className: nginx
   host: contact-form-app.com
+
+metrics:
+  enabled: false
+  serviceMonitorLabels:
+    release: prometheus

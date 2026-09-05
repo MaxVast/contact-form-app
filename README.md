@@ -187,15 +187,9 @@ kubectl apply -f helm/database/postgres.yaml
 ```
 # 3. Backend + frontend, avec les images locales
 ```bash
-helm upgrade --install contact-form ./helm/contact-form-app \
+helm upgrade --install ontact-form-app ./helm/contact-form-app \
   --namespace contact-form \
-  --set backend.image.repository=contact-backend \
-  --set backend.image.tag=local \
-  --set backend.image.pullPolicy=Never \
-  --set backend.existingSecret=backend-form-app-secret \
-  --set frontend.image.repository=contact-frontend \
-  --set frontend.image.tag=local \
-  --set frontend.image.pullPolicy=Never
+  -f helm/contact-form-app/values-local.yaml
 ```
 # Accéder à l'application (port-forward)
 **Le plus simple — port-forward direct** :
@@ -275,7 +269,7 @@ kubectl delete namespace contact-form
 ## Pistes d'évolution
 - [ ] workflow github pour déploiement sur GCP/GKE
 - [ ] ajout de terraform
-- [ ] ajout d'un outil d'observabilité comme Prometheus & Grafana
+- [x] ajout d'un outil d'observabilité comme Prometheus & Grafana
 - [ ] tests d'intégration (vraie base Postgres via testcontainers) ;
 - [ ] rate limiting sur `/api/contact` (anti-spam) ;
 - [ ] notification par email en découplant via une file (NATS/RabbitMQ) et

@@ -1,0 +1,17 @@
+backend:
+  image:
+    repository: contact-backend
+    tag: local
+    pullPolicy: Never
+  existingSecret: backend-form-app-secret
+
+frontend:
+  image:
+    repository: contact-frontend
+    tag: local
+    pullPolicy: Never
+
+metrics:
+  enabled: true
+  serviceMonitorLabels:
+    release: prometheus
