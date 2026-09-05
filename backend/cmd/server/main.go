@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maxvast/contact-form-app/backend/internal/config"
 	"github.com/maxvast/contact-form-app/backend/internal/handler"
+	"github.com/maxvast/contact-form-app/backend/internal/middleware"
 	"github.com/maxvast/contact-form-app/backend/internal/observability"
 	"github.com/maxvast/contact-form-app/backend/internal/repository"
 	"github.com/maxvast/contact-form-app/backend/internal/service"
@@ -46,11 +47,13 @@ func main() {
 	svc := service.NewContactService(repo)
 	h := handler.NewContactHandler(svc)
 
+	rateLimiter := middleware.NewRateLimiter(5.0/60.0, 5)
+
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chiMiddleware.RequestID)
+	r.Use(chiMiddleware.RealIP)
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 
 	r.Handle("/metrics", promhttp.Handler())
 
@@ -66,7 +69,7 @@ func main() {
 		r.Get("/health", h.Health)
 		r.Get("/ready", h.Ready)
 		r.Route("/api/contact", func(r chi.Router) {
-			r.Post("/", h.Create)
+			r.With(rateLimiter.Middleware).Post("/", h.Create)
 			r.Get("/", h.List)
 		})
 	})

@@ -7,6 +7,10 @@ backend:
   port: 8080
   corsOrigin: "http://contact.example.com"
   existingSecret: backend-form-app-secret
+  rateLimit:
+    enabled: true
+    requests: 5
+    window: "1m"
   resources:
     requests:
       cpu: 100m
