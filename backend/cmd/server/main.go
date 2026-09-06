@@ -47,7 +47,7 @@ func main() {
 	svc := service.NewContactService(repo)
 	h := handler.NewContactHandler(svc)
 
-	rateLimiter := middleware.NewRateLimiter(5.0/60.0, 5)
+	rateLimiter := middleware.NewRateLimiter(2.0/60.0, 2)
 
 	r := chi.NewRouter()
 	r.Use(chiMiddleware.RequestID)

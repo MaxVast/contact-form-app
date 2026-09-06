@@ -7,6 +7,3 @@ metadata:
 data:
   PORT: "{{ .Values.backend.port }}"
   CORS_ORIGIN: {{ .Values.backend.corsOrigin | quote }}
-  RATE_LIMIT_ENABLED: {{ .Values.backend.rateLimit.enabled | quote }}
-  RATE_LIMIT_REQUESTS: "{{ .Values.backend.rateLimit.requests }}"
-  RATE_LIMIT_WINDOW: {{ .Values.backend.rateLimit.window | quote }}

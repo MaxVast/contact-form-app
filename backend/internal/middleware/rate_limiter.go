@@ -32,6 +32,8 @@ func NewRateLimiter(r rate.Limit, burst int) *RateLimiter {
 
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		println("🔥 RATE LIMITER EXECUTED:", r.Method, r.URL.Path)
+
 		ip := clientIP(r)
 
 		rl.mu.Lock()
@@ -50,12 +52,10 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 
 		rl.mu.Unlock()
 
+		println("🔥 RATE LIMIT:", allowed)
+
 		if !allowed {
-			http.Error(
-				w,
-				"too many requests",
-				http.StatusTooManyRequests,
-			)
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
 			return
 		}
 

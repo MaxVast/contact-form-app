@@ -7,10 +7,6 @@ backend:
   port: 8080
   corsOrigin: "http://contact.example.com"
   existingSecret: backend-form-app-secret
-  rateLimit:
-    enabled: true
-    requests: 5
-    window: "1m"
   resources:
     requests:
       cpu: 100m
@@ -37,7 +33,12 @@ frontend:
 ingress:
   enabled: true
   className: nginx
-  host: contact-form-app.com
+  host: contact.example.com
+  rateLimit:
+    enabled: true
+    rps: 1
+    burstMultiplier: 2
+    limitReqStatusCode: 429
 
   tls:
     enabled: true
