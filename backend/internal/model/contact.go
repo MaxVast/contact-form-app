@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 )
@@ -15,6 +16,7 @@ type ContactMessage struct {
 	Email     string    `json:"email"`
 	Subject   string    `json:"subject"`
 	Message   string    `json:"message"`
+	IsRead    bool      `json:"is_read"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -29,6 +31,9 @@ func (c *ContactMessage) Validate() error {
 	}
 	if c.Email == "" || !strings.Contains(c.Email, "@") || len(c.Email) > 150 {
 		return fmt.Errorf("%w: l'email est invalide", ErrValidation)
+	}
+	if _, err := mail.ParseAddress(c.Email); err != nil {
+		return fmt.Errorf("%w: email invalide", ErrValidation)
 	}
 	if c.Subject == "" || len(c.Subject) > 150 {
 		return fmt.Errorf("%w: le sujet est requis (150 caractères max)", ErrValidation)

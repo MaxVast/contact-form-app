@@ -6,9 +6,17 @@ metadata:
   labels:
     {{- include "contact-form-app.labels" . | nindent 4 }}
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+
+{{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+{{- end }}
+
   rules:
     - host: {{ .Values.ingress.host }}
       http:
@@ -20,4 +28,12 @@ spec:
                 name: contact-frontend
                 port:
                   number: {{ .Values.frontend.port }}
+
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: contact-backend
+                port:
+                  number: {{ .Values.backend.port }}
 {{- end }}

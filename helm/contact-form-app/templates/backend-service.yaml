@@ -3,10 +3,12 @@ kind: Service
 metadata:
   name: contact-backend
   labels:
+    app: contact-backend
     {{- include "contact-form-app.labels" . | nindent 4 }}
 spec:
   selector:
     app: contact-backend
   ports:
-    - port: {{ .Values.backend.port }}
+    - name: http
+      port: {{ .Values.backend.port }}
       targetPort: {{ .Values.backend.port }}
