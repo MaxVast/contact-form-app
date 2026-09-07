@@ -271,7 +271,7 @@ kubectl delete namespace contact-form
 - [ ] ajout de terraform
 - [x] ajout d'un outil d'observabilité comme Prometheus & Grafana
 - [ ] tests d'intégration (vraie base Postgres via testcontainers) ;
-- [ ] rate limiting sur `/api/contact` (anti-spam) ;
+- [x] rate limiting sur `/api/contact` (anti-spam) ;
 - [ ] notification par email en découplant via une file (NATS/RabbitMQ) et
   un second microservice.
 - [ ] ajout d'un model user

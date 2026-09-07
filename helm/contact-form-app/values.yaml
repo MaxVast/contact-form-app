@@ -33,7 +33,12 @@ frontend:
 ingress:
   enabled: true
   className: nginx
-  host: contact-form-app.com
+  host: contact.example.com
+  rateLimit:
+    enabled: true
+    rps: 1
+    burstMultiplier: 2
+    limitReqStatusCode: 429
 
   tls:
     enabled: true
