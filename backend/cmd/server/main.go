@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+
 	"log"
 	"net/http"
 	"os"
@@ -13,8 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maxvast/contact-form-app/backend/internal/config"
+	"github.com/maxvast/contact-form-app/backend/internal/database"
 	"github.com/maxvast/contact-form-app/backend/internal/handler"
 	"github.com/maxvast/contact-form-app/backend/internal/middleware"
 	"github.com/maxvast/contact-form-app/backend/internal/observability"
@@ -26,20 +27,19 @@ import (
 func main() {
 	cfg := config.Load()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
 	defer cancel()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("connexion à la base impossible: %v", err)
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("base de données indisponible: %v", err)
-	}
-
-	if err := runMigrations(ctx, pool); err != nil {
+	if err := database.RunMigrations(ctx, pool, "migrations"); err != nil {
 		log.Fatalf("migration impossible: %v", err)
 	}
 
@@ -97,13 +97,4 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	_ = srv.Shutdown(shutdownCtx)
-}
-
-func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	sqlBytes, err := os.ReadFile("migrations/001_init.sql")
-	if err != nil {
-		return err
-	}
-	_, err = pool.Exec(ctx, string(sqlBytes))
-	return err
 }

@@ -8,15 +8,16 @@ import (
 	"github.com/maxvast/contact-form-app/backend/internal/model"
 )
 
-type ContactRepository struct {
+type PostgresContactRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewContactRepository(db *pgxpool.Pool) *ContactRepository {
-	return &ContactRepository{db: db}
+func NewContactRepository(db *pgxpool.Pool) *PostgresContactRepository {
+	return &PostgresContactRepository{
+		db: db,
+	}
 }
-
-func (r *ContactRepository) Save(ctx context.Context, c *model.ContactMessage) error {
+func (r *PostgresContactRepository) Save(ctx context.Context, c *model.ContactMessage) error {
 	query := `
 		INSERT INTO contact_messages (name, email, subject, message)
 		VALUES ($1, $2, $3, $4)
@@ -26,7 +27,7 @@ func (r *ContactRepository) Save(ctx context.Context, c *model.ContactMessage) e
 		Scan(&c.ID, &c.CreatedAt)
 }
 
-func (r *ContactRepository) List(ctx context.Context, limit int) ([]model.ContactMessage, error) {
+func (r *PostgresContactRepository) List(ctx context.Context, limit int) ([]model.ContactMessage, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, name, email, subject, message, created_at
 		FROM contact_messages
@@ -48,6 +49,6 @@ func (r *ContactRepository) List(ctx context.Context, limit int) ([]model.Contac
 	return messages, rows.Err()
 }
 
-func (r *ContactRepository) Ping(ctx context.Context) error {
+func (r *PostgresContactRepository) Ping(ctx context.Context) error {
 	return r.db.Ping(ctx)
 }

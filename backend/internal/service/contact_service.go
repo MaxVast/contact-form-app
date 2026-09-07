@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/maxvast/contact-form-app/backend/internal/repository"
 
 	"github.com/maxvast/contact-form-app/backend/internal/model"
 )
@@ -13,11 +14,13 @@ type Repository interface {
 }
 
 type ContactService struct {
-	repo Repository
+	repo repository.ContactRepository
 }
 
-func NewContactService(repo Repository) *ContactService {
-	return &ContactService{repo: repo}
+func NewContactService(repo repository.ContactRepository) *ContactService {
+	return &ContactService{
+		repo: repo,
+	}
 }
 
 func (s *ContactService) Submit(ctx context.Context, c *model.ContactMessage) error {
