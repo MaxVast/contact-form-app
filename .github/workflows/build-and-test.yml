@@ -62,6 +62,30 @@ jobs:
       - name: Run Tests
         run: task ci
 
+      - name: Check coverage reports
+        run: |
+          echo "=== Backend coverage ==="
+          ls -lh backend/reports/ || true
+          test -s backend/reports/backend-coverage.out
+
+          echo "=== Frontend coverage ==="
+          ls -lh frontend/coverage/ || true
+          test -s frontend/coverage/lcov.info
+
+      - name: Upload Go coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/reports/backend-coverage.out
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+
+
+
       - name: SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@v8.2.1
         env:
@@ -73,12 +97,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v4
-        with:
-          name: code-coverage-report
-          path: reports/
-          retention-days: 1
+      #- name: Archive code coverage results
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: code-coverage-report
+      #    path: reports/
+      #    retention-days: 1
 
       - name: Stop containers
         if: always()
