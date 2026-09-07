@@ -60,6 +60,17 @@ jobs:
       - name: Run Tests
         run: task ci
 
+      - name: SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
+        timeout-minutes: 10
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Archive code coverage results
         uses: actions/upload-artifact@v4
         with:

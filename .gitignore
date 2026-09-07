@@ -1,3 +1,6 @@
 .idea
 backend/reports
-reports
+frontend/node_modules
+frontend/coverage
+
+.env.sonar

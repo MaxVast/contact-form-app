@@ -15,3 +15,15 @@ tasks:
     cmds:
       - docker-compose up -d go
       - docker-compose exec go go vet ./...
+
+  sonar:
+    desc: 'Run SonarQube analysis'
+    cmds:
+      - |
+        docker run --rm \
+          --network contact-form-app_default \
+          -e SONAR_HOST_URL=http://sonarqube:9000 \
+          -e SONAR_TOKEN \
+          -v "{{.PWD}}:/usr/src" \
+          -w /usr/src \
+          sonarsource/sonar-scanner-cli
