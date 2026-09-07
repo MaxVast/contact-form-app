@@ -1,0 +1,2 @@
+ALTER TABLE contact_messages
+    ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false;
