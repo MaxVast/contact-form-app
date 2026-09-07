@@ -1,11 +1,14 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/maxvast/contact-form-app/backend/internal/model"
+	"github.com/maxvast/contact-form-app/backend/internal/repository"
 	"strconv"
 	"strings"
 
@@ -20,7 +23,48 @@ const (
 	argon2SaltLen        = 16
 )
 
-var ErrInvalidPasswordHash = errors.New("invalid password hash")
+var (
+	ErrInvalidPasswordHash = errors.New("invalid password hash")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+)
+
+type AuthService struct {
+	adminUserRepository repository.AdminUserRepository
+}
+
+func NewAuthService(adminUserRepository repository.AdminUserRepository) *AuthService {
+	return &AuthService{
+		adminUserRepository: adminUserRepository,
+	}
+}
+
+func (s *AuthService) Authenticate(ctx context.Context, email string, password string) (*model.AdminUser, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+
+	if email == "" || password == "" {
+		return nil, ErrInvalidCredentials
+	}
+
+	user, err := s.adminUserRepository.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrAdminUserNotFound) {
+			return nil, ErrInvalidCredentials
+		}
+
+		return nil, fmt.Errorf("authenticate admin user: %w", err)
+	}
+
+	valid, err := VerifyPassword(password, user.PasswordHash)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	if !valid {
+		return nil, ErrInvalidCredentials
+	}
+
+	return user, nil
+}
 
 // HashPassword hashes a password using Argon2id.
 func HashPassword(password string) (string, error) {
