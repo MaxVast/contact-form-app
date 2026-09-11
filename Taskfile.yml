@@ -1,5 +1,8 @@
 version: '3'
 
+dotenv:
+  - .env.sonar
+
 includes:
   docker: ./taskfile/DockerTasks.yml
   test: ./taskfile/TestTasks.yml

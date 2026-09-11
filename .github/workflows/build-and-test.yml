@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Install docker-compose
         run: |
@@ -60,12 +62,30 @@ jobs:
       - name: Run Tests
         run: task ci
 
-      - name: Archive code coverage results
+      - name: Upload Go coverage
         uses: actions/upload-artifact@v4
         with:
-          name: code-coverage-report
-          path: reports/
+          name: backend-coverage
+          path: backend/reports/backend-coverage.out
           retention-days: 1
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          retention-days: 1
+
+      - name: SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
+        timeout-minutes: 10
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Stop containers
         if: always()

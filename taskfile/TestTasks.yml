@@ -7,7 +7,7 @@ tasks:
     cmds:
       - mkdir -p ./reports
       - docker-compose up -d go
-      - docker-compose exec go sh -c "go test ./... -v -coverprofile=reports/backend-coverage.out"
+      - docker-compose exec go sh -c "go test ./... -v -coverprofile=reports/backend-coverage.out -covermode=atomic"
 
   test-frontend:
     desc: "Tests front (Vitest) avec couverture"

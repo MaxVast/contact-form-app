@@ -270,6 +270,7 @@ kubectl delete namespace contact-form
 - [ ] workflow github pour déploiement sur GCP/GKE
 - [ ] ajout de terraform
 - [x] ajout d'un outil d'observabilité comme Prometheus & Grafana
+- [x] ajout d'un outil d'analyse statique du code (SonarQube)
 - [ ] tests d'intégration (vraie base Postgres via testcontainers) ;
 - [x] rate limiting sur `/api/contact` (anti-spam) ;
 - [ ] notification par email en découplant via une file (NATS/RabbitMQ) et
