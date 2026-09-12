@@ -5,6 +5,9 @@ on:
       - develop
 env:
   APP_ENV: test
+  JWT_SECRET: "ci-test-secret-change-me"
+  JWT_EXPIRATION: "1h"
+
 jobs:
   Build:
     runs-on: ubuntu-latest
@@ -28,34 +31,78 @@ jobs:
 
       - name: Wait for service
         run: |
-          while status="$(docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" "$(docker-compose ps -q contact-backend)")"; do
-          case $status in
-           starting) sleep 1;;
-           healthy) exit 0;;
-           unhealthy)
-             docker-compose ps
-             docker-compose logs contact-backend
-             exit 1
-           ;;
-          esac
+          container_id="$(docker-compose ps -q contact-backend)"
+
+          if [ -z "$container_id" ]; then
+            echo "❌ contact-backend container not found"
+            echo "=== docker-compose ps ==="
+            docker-compose ps
+            echo "=== docker-compose ps -a ==="
+            docker-compose ps -a
+            echo "=== docker-compose logs ==="
+            docker-compose logs contact-backend
+            exit 1
+          fi
+
+          echo "Container: $container_id"
+
+          for i in {1..60}; do
+            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_id")"
+
+            echo "Backend status: $status"
+
+            case "$status" in
+              starting)
+                sleep 2
+                ;;
+              healthy)
+                exit 0
+                ;;
+              unhealthy)
+                echo "❌ Backend is unhealthy"
+                docker-compose ps
+                docker-compose logs contact-backend
+                exit 1
+                ;;
+              no-healthcheck)
+                echo "❌ No healthcheck configured"
+                docker-compose ps
+                exit 1
+                ;;
+              *)
+                sleep 2
+                ;;
+            esac
           done
+
+          echo "❌ Timeout waiting for contact-backend"
+          docker-compose ps
+          docker-compose logs contact-backend
           exit 1
 
       - name: Check App
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}\n' 'http://localhost:8080/health')
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)
+
           if [ "$HTTP_CODE" = "200" ]; then
-              exit 0
+            echo "✅ /health OK"
+            exit 0
           fi
+
+          echo "❌ /health returned $HTTP_CODE"
           docker-compose logs contact-backend
           exit 1
 
       - name: Check Database
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}\n' 'http://localhost:8080/ready')
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ready)
+
           if [ "$HTTP_CODE" = "200" ]; then
-              exit 0
+            echo "✅ /ready OK"
+            exit 0
           fi
+
+          echo "❌ /ready returned $HTTP_CODE"
           docker-compose logs contact-backend
           exit 1
 

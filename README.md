@@ -5,6 +5,19 @@ d'architecture microservices : un service API en Go, un front Vue.js,
 une base PostgreSQL, le tout conteneurisé et déployable sur Kubernetes
 via une pipeline CI/CD GitHub Actions.
 
+[![SonarQube Cloud](https://sonarcloud.io/images/project_badges/sonarcloud-highlight.svg)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+
+
 ## Architecture
 
 ```
@@ -276,7 +289,13 @@ kubectl delete namespace contact-form
 - [ ] notification par email en découplant via une file (NATS/RabbitMQ) et
   un second microservice.
 - [x] ajout d'un model AdminUser
+- [x] ajout d'un seed admin lors du build de  l'image backend
 - [ ] ajout d'une page de connexion
+- [ ] ajout d'un endpoint /messages/{id}
+- [ ] passer le message en status dès que l'user admin est est /messages/{id}
+- [x] ajout d'un login
+- [x] ajout d'un JWT
+- [x] ajout d'un middleware pour protéger les routes avec un JWT
 - [ ] ajout d'une connexion avec JWT
 - [ ] ajout d'un back-office
 - [ ] changer le (framework `chi`) par `gin`

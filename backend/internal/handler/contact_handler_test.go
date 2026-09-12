@@ -22,7 +22,7 @@ func TestContactHandler_Ready(t *testing.T) {
 	svc := service.NewContactService(repo)
 	handler := NewContactHandler(svc)
 
-	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	rec := httptest.NewRecorder()
 
 	handler.Ready(rec, req)
@@ -137,7 +137,7 @@ func TestContactHandler_List(t *testing.T) {
 func TestContactHandler_Health(t *testing.T) {
 	h, _ := newTestHandler()
 
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
 	h.Health(rec, req)

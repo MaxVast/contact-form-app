@@ -38,6 +38,10 @@ jobs:
             --from-literal=POSTGRES_PASSWORD=test
           kubectl create secret generic backend-form-app-secret-test \
             --from-literal=DATABASE_URL="postgres://test:test@postgres:5432/test_db?sslmode=disable"
+          kubectl create secret generic jwt-secret \
+            --from-literal=JWT_SECRET="ci-test-secret-change-me" \
+            --from-literal=JWT_EXPIRATION="1h" \
+            --dry-run=client -o yaml | kubectl apply -f -
           helm install contact-form ./helm/contact-form-app \
             --set backend.image.repository=contact-backend \
             --set backend.image.tag=local \
@@ -81,6 +85,12 @@ jobs:
           --from-literal=DATABASE_URL="postgres://contact:contact@postgres:5432/contact_db?sslmode=disable"
           kubectl apply -f helm/database/postgres.yaml
           kubectl rollout status deployment/postgres --timeout=90s
+
+      - name: Create secret JWT
+        run: |
+          kubectl create secret generic jwt-secret \
+          --from-literal=JWT_SECRET="ci-test-secret-change-me" \
+          --from-literal=JWT_EXPIRATION="1h" \
 
       - name: Deploy application chart
         run: |

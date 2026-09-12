@@ -26,6 +26,8 @@ spec:
                 name: backend-config
             - secretRef:
                 name: {{ .Values.backend.existingSecret }}
+            - secretRef:
+                  name: jwt-secret
           readinessProbe:
             httpGet:
               path: /health

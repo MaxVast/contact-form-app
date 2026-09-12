@@ -2,17 +2,14 @@ package repository
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/maxvast/contact-form-app/backend/internal/model"
 )
 
 type PostgresContactRepository struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewContactRepository(db *pgxpool.Pool) *PostgresContactRepository {
+func NewContactRepository(db DB) *PostgresContactRepository {
 	return &PostgresContactRepository{
 		db: db,
 	}

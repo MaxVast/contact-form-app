@@ -25,6 +25,10 @@ ingress:
     enabled: false
 
 metrics:
-  enabled: true
+  enabled: false
   serviceMonitorLabels:
     release: prometheus
+
+seedAdmin:
+  enabled: true
+  existingSecret: admin-secret

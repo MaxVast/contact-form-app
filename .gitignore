@@ -1,5 +1,6 @@
 .idea
 backend/reports
+backend/create-admin
 frontend/node_modules
 frontend/coverage
 

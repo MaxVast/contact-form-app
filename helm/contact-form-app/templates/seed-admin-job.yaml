@@ -1,0 +1,29 @@
+{{- if .Values.seedAdmin.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-admin-{{ .Release.Revision }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: seed-admin
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+
+          command:
+            - "./seed-admin"
+
+          envFrom:
+            - secretRef:
+                name: admin-secret
+
+            - secretRef:
+                name: {{ .Values.backend.existingSecret }}
+{{- end }}
