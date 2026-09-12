@@ -5,6 +5,10 @@ on:
     branches:
       - develop
 
+env:
+  JWT_SECRET: "ci-test-secret-change-me"
+  JWT_EXPIRATION: "1h"
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest

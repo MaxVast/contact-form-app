@@ -5,6 +5,9 @@ on:
       - develop
 env:
   APP_ENV: test
+  JWT_SECRET: "ci-test-secret-change-me"
+  JWT_EXPIRATION: "1h"
+
 jobs:
   Build:
     runs-on: ubuntu-latest
