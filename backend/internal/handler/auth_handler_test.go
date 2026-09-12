@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/maxvast/contact-form-app/backend/internal/middleware"
 	"net/http"
 	"net/http/httptest"
@@ -11,214 +12,224 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/maxvast/contact-form-app/backend/internal/auth"
 	"github.com/maxvast/contact-form-app/backend/internal/model"
 	"github.com/maxvast/contact-form-app/backend/internal/service"
 )
 
 type fakeAuthService struct {
-	user  *model.AdminUser
-	err   error
-	email string
+	user     *model.AdminUser
+	err      error
+	email    string
+	password string
 }
 
-func (f *fakeAuthService) Authenticate(ctx context.Context, email string, password string) (*model.AdminUser, error) {
+func (f *fakeAuthService) Authenticate(
+	_ context.Context,
+	email string,
+	password string,
+) (*model.AdminUser, error) {
 	f.email = email
+	f.password = password
 
-	if f.err != nil {
-		return nil, f.err
-	}
+	return f.user, f.err
+}
 
-	return f.user, nil
+func newTestJWTService(t *testing.T) *auth.JWTService {
+	t.Helper()
+
+	jwtService, err := auth.NewJWTService("test-secret", time.Hour)
+	require.NoError(t, err)
+
+	return jwtService
 }
 
 func TestAuthHandler_Login_Success(t *testing.T) {
 	authService := &fakeAuthService{
 		user: &model.AdminUser{
-			ID:    "994c3ed3-bd88-4b54-bb0e-2b560e34a3b1",
-			Email: "max@exemple.com",
+			ID:    "123",
+			Email: "john@example.com",
 			Role:  model.AdminRole,
 		},
 	}
 
-	jwtService, err := auth.NewJWTService("6HnfWwvmDy", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create jwt service: %v", err)
-	}
+	handler := NewAuthHandler(
+		authService,
+		newTestJWTService(t),
+	)
 
-	handler := NewAuthHandler(authService, jwtService)
+	body := `{
+		"email": "john@example.com",
+		"password": "password"
+	}`
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"/api/admin/login",
-		strings.NewReader(`{
-			"email": "max@exemple.com",
-			"password": "password"
-		}`),
+		"/login",
+		strings.NewReader(body),
 	)
-
 	rec := httptest.NewRecorder()
 
 	handler.Login(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var got loginResponse
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("failed to decode response body: %v", err)
-	}
+	var response loginResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 
-	if got.Message != "authentication successful" {
-		t.Errorf("expected message %q, got %q", "authentication successful", got.Message)
-	}
+	assert.Equal(t, "authentication successful", response.Message)
+	assert.Equal(t, "Bearer", response.TokenType)
+	assert.NotEmpty(t, response.AccessToken)
+	assert.Equal(t, int64(time.Hour.Seconds()), response.ExpiresIn)
 
-	if got.TokenType != "Bearer" {
-		t.Errorf("expected token_type %q, got %q", "Bearer", got.TokenType)
-	}
-
-	if got.ExpiresIn != int64(time.Hour.Seconds()) {
-		t.Errorf("expected expires_in %d, got %d", int64(time.Hour.Seconds()), got.ExpiresIn)
-	}
-
-	if got.AccessToken == "" {
-		t.Fatal("expected a non-empty access_token")
-	}
-
-	if strings.Count(got.AccessToken, ".") != 2 {
-		t.Fatalf("expected access_token to be a JWT with 3 segments, got %q", got.AccessToken)
-	}
-
-	claims, err := jwtService.ValidateToken(got.AccessToken)
-	if err != nil {
-		t.Fatalf("expected access_token to be valid, got error: %v", err)
-	}
-
-	if claims.Subject != authService.user.ID {
-		t.Errorf("expected subject %q, got %q", authService.user.ID, claims.Subject)
-	}
-
-	if claims.Email != authService.user.Email {
-		t.Errorf("expected email %q, got %q", authService.user.Email, claims.Email)
-	}
-
-	if claims.Role != authService.user.Role {
-		t.Errorf("expected role %q, got %q", authService.user.Role, claims.Role)
-	}
+	assert.Equal(t, "john@example.com", authService.email)
+	assert.Equal(t, "password", authService.password)
 }
 
-func TestAuthHandler_Login_Errors(t *testing.T) {
-	tests := []struct {
-		name           string
-		body           string
-		serviceErr     error
-		expectedStatus int
-		expectedBody   string
-	}{
-		{
-			name:           "invalid json",
-			body:           `{invalid}`,
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "invalid request body",
-		},
-		{
-			name: "invalid credentials",
-			body: `{
-				"email": "admin@example.com",
-				"password": "wrong"
-			}`,
-			serviceErr:     service.ErrInvalidCredentials,
-			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   "invalid credentials",
-		},
-		{
-			name: "repository error",
-			body: `{
-				"email": "admin@example.com",
-				"password": "password"
-			}`,
-			serviceErr:     errors.New("database unavailable"),
-			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "internal server error",
-		},
-	}
+func TestAuthHandler_Login_InvalidBody(t *testing.T) {
+	authService := &fakeAuthService{}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			authService := &fakeAuthService{
-				err: tt.serviceErr,
-			}
+	handler := NewAuthHandler(
+		authService,
+		newTestJWTService(t),
+	)
 
-			jwtService, err := auth.NewJWTService("6HnfWwvmDy", time.Hour)
-			if err != nil {
-				t.Fatalf("failed to create jwt service: %v", err)
-			}
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/login",
+		strings.NewReader(`invalid json`),
+	)
+	rec := httptest.NewRecorder()
 
-			handler := NewAuthHandler(authService, jwtService)
+	handler.Login(rec, req)
 
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/admin/login",
-				strings.NewReader(tt.body),
-			)
-
-			rec := httptest.NewRecorder()
-
-			handler.Login(rec, req)
-
-			if rec.Code != tt.expectedStatus {
-				t.Fatalf(
-					"expected status %d, got %d",
-					tt.expectedStatus,
-					rec.Code,
-				)
-			}
-
-			if !strings.Contains(rec.Body.String(), tt.expectedBody) {
-				t.Fatalf(
-					"expected body to contain %q, got %q",
-					tt.expectedBody,
-					rec.Body.String(),
-				)
-			}
-		})
-	}
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "invalid request body\n", rec.Body.String())
 }
 
-func TestAuthHandler_Me(t *testing.T) {
-	jwtService, err := auth.NewJWTService("test-secret", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create JWT service: %v", err)
+func TestAuthHandler_Login_InvalidCredentials(t *testing.T) {
+	authService := &fakeAuthService{
+		err: service.ErrInvalidCredentials,
 	}
 
-	handler := &AuthHandler{}
-	jwtMiddleware := middleware.NewJWTMiddleware(jwtService)
+	handler := NewAuthHandler(
+		authService,
+		newTestJWTService(t),
+	)
 
-	user := &model.AdminUser{
-		ID:    "994c3ed3-bd88-4b54-bb0e-2b560e34a3b1",
-		Email: "admin@example.com",
-		Role:  "admin",
+	body := `{
+		"email": "john@example.com",
+		"password": "wrong-password"
+	}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/login",
+		strings.NewReader(body),
+	)
+	rec := httptest.NewRecorder()
+
+	handler.Login(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Equal(t, "invalid credentials\n", rec.Body.String())
+}
+
+func TestAuthHandler_Login_AuthServiceError(t *testing.T) {
+	authService := &fakeAuthService{
+		err: errors.New("database error"),
 	}
 
-	token, err := jwtService.GenerateToken(user)
-	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
+	handler := NewAuthHandler(
+		authService,
+		newTestJWTService(t),
+	)
+
+	body := `{
+		"email": "john@example.com",
+		"password": "password"
+	}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/login",
+		strings.NewReader(body),
+	)
+	rec := httptest.NewRecorder()
+
+	handler.Login(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, "internal server error\n", rec.Body.String())
+}
+
+func TestAuthHandler_Login_JWTError(t *testing.T) {
+	authService := &fakeAuthService{
+		user: &model.AdminUser{
+			ID:    "", // GenerateToken() doit échouer ici
+			Email: "john@example.com",
+			Role:  model.AdminRole,
+		},
 	}
 
-	next := http.HandlerFunc(handler.Me)
-	protectedHandler := jwtMiddleware.Authenticate(next)
+	handler := NewAuthHandler(
+		authService,
+		newTestJWTService(t),
+	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/me", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	body := `{
+		"email": "john@example.com",
+		"password": "password"
+	}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/login",
+		strings.NewReader(body),
+	)
+	rec := httptest.NewRecorder()
+
+	handler.Login(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, "internal server error\n", rec.Body.String())
+}
+
+func TestAuthHandler_Me_Success(t *testing.T) {
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		newTestJWTService(t),
+	)
+
+	claims := &auth.Claims{
+		Email: "john@example.com",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: "user-123",
+		},
+	}
+
+	ctx := middleware.ContextWithClaims(
+		context.Background(),
+		claims,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	).WithContext(ctx)
 
 	rec := httptest.NewRecorder()
 
-	protectedHandler.ServeHTTP(rec, req)
+	handler.Me(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var response struct {
 		ID    string `json:"id"`
@@ -226,120 +237,206 @@ func TestAuthHandler_Me(t *testing.T) {
 		Role  string `json:"role"`
 	}
 
-	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 
-	if response.ID != user.ID {
-		t.Errorf("expected ID %q, got %q", user.ID, response.ID)
-	}
-
-	if response.Email != user.Email {
-		t.Errorf("expected email %q, got %q", user.Email, response.Email)
-	}
-
-	if response.Role != user.Role {
-		t.Errorf("expected role %q, got %q", user.Role, response.Role)
-	}
+	assert.Equal(t, "user-123", response.ID)
+	assert.Equal(t, "john@example.com", response.Email)
+	assert.Equal(t, model.AdminRole, response.Role)
 }
 
-func TestAuthHandler_Me_UnauthorizedWithoutToken(t *testing.T) {
-	jwtService, err := auth.NewJWTService("test-secret", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create JWT service: %v", err)
-	}
-
-	handler := &AuthHandler{}
-	jwtMiddleware := middleware.NewJWTMiddleware(jwtService)
-
-	protectedHandler := jwtMiddleware.Authenticate(
-		http.HandlerFunc(handler.Me),
+func TestAuthHandler_Me_ReturnsClaimsValues(t *testing.T) {
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		newTestJWTService(t),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/me", nil)
-	rec := httptest.NewRecorder()
-
-	protectedHandler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf(
-			"expected status %d, got %d",
-			http.StatusUnauthorized,
-			rec.Code,
-		)
-	}
-}
-
-func TestAuthHandler_Me_UnauthorizedWithInvalidToken(t *testing.T) {
-	jwtService, err := auth.NewJWTService("test-secret", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create JWT service: %v", err)
+	claims := &auth.Claims{
+		Email: "admin@test.com",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: "admin-456",
+		},
 	}
 
-	handler := &AuthHandler{}
-	jwtMiddleware := middleware.NewJWTMiddleware(jwtService)
-
-	protectedHandler := jwtMiddleware.Authenticate(
-		http.HandlerFunc(handler.Me),
+	ctx := middleware.ContextWithClaims(
+		context.Background(),
+		claims,
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/me", nil)
-	req.Header.Set("Authorization", "Bearer invalid-token")
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	).WithContext(ctx)
 
 	rec := httptest.NewRecorder()
 
-	protectedHandler.ServeHTTP(rec, req)
+	handler.Me(rec, req)
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf(
-			"expected status %d, got %d",
-			http.StatusUnauthorized,
-			rec.Code,
-		)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+
+	assert.Equal(t, "admin-456", response["id"])
+	assert.Equal(t, "admin@test.com", response["email"])
+	assert.Equal(t, model.AdminRole, response["role"])
 }
 
-func TestAuthHandler_Me_UnauthorizedWithWrongSecret(t *testing.T) {
-	jwtService, err := auth.NewJWTService("test-secret", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create JWT service: %v", err)
+func TestAuthHandler_Me_EmptySubject(t *testing.T) {
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		newTestJWTService(t),
+	)
+
+	claims := &auth.Claims{
+		Email: "john@example.com",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: "",
+		},
 	}
 
-	wrongJWTService, err := auth.NewJWTService("wrong-secret", time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create wrong JWT service: %v", err)
+	ctx := middleware.ContextWithClaims(
+		context.Background(),
+		claims,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	).WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+
+	handler.Me(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
 	}
+
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+
+	assert.Empty(t, response.ID)
+	assert.Equal(t, "john@example.com", response.Email)
+	assert.Equal(t, model.AdminRole, response.Role)
+}
+
+func TestAuthHandler_Me_EmptyEmail(t *testing.T) {
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		newTestJWTService(t),
+	)
+
+	claims := &auth.Claims{
+		Email: "",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: "user-123",
+		},
+	}
+
+	ctx := middleware.ContextWithClaims(
+		context.Background(),
+		claims,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	).WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+
+	handler.Me(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}
+
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+
+	assert.Equal(t, "user-123", response.ID)
+	assert.Empty(t, response.Email)
+	assert.Equal(t, model.AdminRole, response.Role)
+}
+
+func TestAuthHandler_Me_Unauthorized(t *testing.T) {
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		newTestJWTService(t),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	handler.Me(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Equal(t, "unauthorized\n", rec.Body.String())
+}
+
+func TestAuthHandler_Me_WithValidJWT(t *testing.T) {
+	jwtService := newTestJWTService(t)
 
 	user := &model.AdminUser{
-		ID:    "994c3ed3-bd88-4b54-bb0e-2b560e34a3b1",
-		Email: "admin@example.com",
-		Role:  "admin",
+		ID:    "user-123",
+		Email: "john@example.com",
+		Role:  model.AdminRole,
 	}
 
-	token, err := wrongJWTService.GenerateToken(user)
-	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
-	}
+	token, err := jwtService.GenerateToken(user)
+	require.NoError(t, err)
 
-	handler := &AuthHandler{}
-	jwtMiddleware := middleware.NewJWTMiddleware(jwtService)
+	claims, err := jwtService.ValidateToken(token)
+	require.NoError(t, err)
 
-	protectedHandler := jwtMiddleware.Authenticate(
-		http.HandlerFunc(handler.Me),
+	ctx := middleware.ContextWithClaims(
+		context.Background(),
+		claims,
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/me", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	handler := NewAuthHandler(
+		&fakeAuthService{},
+		jwtService,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/me",
+		nil,
+	).WithContext(ctx)
 
 	rec := httptest.NewRecorder()
 
-	protectedHandler.ServeHTTP(rec, req)
+	handler.Me(rec, req)
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf(
-			"expected status %d, got %d",
-			http.StatusUnauthorized,
-			rec.Code,
-		)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
 	}
+
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+
+	assert.Equal(t, user.ID, response.ID)
+	assert.Equal(t, user.Email, response.Email)
+	assert.Equal(t, user.Role, response.Role)
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -369,5 +370,165 @@ func TestValidateTokenWrongSigningMethod(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("ValidateToken() expected signing method error")
+	}
+}
+
+func TestJWTService_Expiration(t *testing.T) {
+	expiration := 2 * time.Hour
+
+	service, err := NewJWTService("test-secret", expiration)
+	if err != nil {
+		t.Fatalf("NewJWTService() error = %v", err)
+	}
+
+	if got := service.Expiration(); got != expiration {
+		t.Errorf("Expiration() = %v, want %v", got, expiration)
+	}
+}
+
+func TestJWTService_GenerateToken_InvalidUser(t *testing.T) {
+	service, err := NewJWTService("test-secret", time.Hour)
+	if err != nil {
+		t.Fatalf("NewJWTService() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		user *model.AdminUser
+	}{
+		{
+			name: "nil user",
+			user: nil,
+		},
+		{
+			name: "missing user ID",
+			user: &model.AdminUser{
+				Email: "admin@example.com",
+				Role:  model.AdminRole,
+			},
+		},
+		{
+			name: "missing user email",
+			user: &model.AdminUser{
+				ID:   "user-id",
+				Role: model.AdminRole,
+			},
+		},
+		{
+			name: "missing user role",
+			user: &model.AdminUser{
+				ID:    "user-id",
+				Email: "admin@example.com",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := service.GenerateToken(tt.user)
+
+			if err == nil {
+				t.Fatalf("GenerateToken() error = nil, want error")
+			}
+
+			if token != "" {
+				t.Errorf("GenerateToken() token = %q, want empty token", token)
+			}
+		})
+	}
+}
+
+func TestJWTService_ValidateToken_MissingSubject(t *testing.T) {
+	service, err := NewJWTService("test-secret", time.Hour)
+	if err != nil {
+		t.Fatalf("NewJWTService() error = %v", err)
+	}
+
+	now := time.Now()
+
+	claims := Claims{
+		Email: "admin@example.com",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte("test-secret"))
+	if err != nil {
+		t.Fatalf("SignedString() error = %v", err)
+	}
+
+	_, err = service.ValidateToken(tokenString)
+
+	if err == nil {
+		t.Fatal("ValidateToken() error = nil, want error")
+	}
+
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("ValidateToken() error = %v, want ErrInvalidToken", err)
+	}
+}
+
+func TestJWTService_ValidateToken_InvalidRole(t *testing.T) {
+	service, err := NewJWTService("test-secret", time.Hour)
+	if err != nil {
+		t.Fatalf("NewJWTService() error = %v", err)
+	}
+
+	token, err := service.GenerateToken(&model.AdminUser{
+		ID:    "user-id",
+		Email: "admin@example.com",
+		Role:  "user",
+	})
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+
+	_, err = service.ValidateToken(token)
+
+	if err == nil {
+		t.Fatal("ValidateToken() error = nil, want error")
+	}
+
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("ValidateToken() error = %v, want ErrInvalidToken", err)
+	}
+}
+
+func TestJWTService_ValidateToken_UnexpectedSigningMethod(t *testing.T) {
+	service, err := NewJWTService("test-secret", time.Hour)
+	if err != nil {
+		t.Fatalf("NewJWTService() error = %v", err)
+	}
+
+	claims := Claims{
+		Email: "admin@example.com",
+		Role:  model.AdminRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "user-id",
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS384, claims)
+
+	tokenString, err := token.SignedString([]byte("test-secret"))
+	if err != nil {
+		t.Fatalf("SignedString() error = %v", err)
+	}
+
+	_, err = service.ValidateToken(tokenString)
+
+	if err == nil {
+		t.Fatal("ValidateToken() error = nil, want error")
+	}
+
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("ValidateToken() error = %v, want ErrInvalidToken", err)
 	}
 }

@@ -57,3 +57,7 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 
 	return claims, ok
 }
+
+func ContextWithClaims(ctx context.Context, claims *auth.Claims) context.Context {
+	return context.WithValue(ctx, jwtClaimsKey, claims)
+}

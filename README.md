@@ -5,6 +5,19 @@ d'architecture microservices : un service API en Go, un front Vue.js,
 une base PostgreSQL, le tout conteneurisé et déployable sur Kubernetes
 via une pipeline CI/CD GitHub Actions.
 
+[![SonarQube Cloud](https://sonarcloud.io/images/project_badges/sonarcloud-highlight.svg)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=maxvast_contact-form-app&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=maxvast_contact-form-app)
+
+
+
 ## Architecture
 
 ```
