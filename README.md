@@ -276,7 +276,13 @@ kubectl delete namespace contact-form
 - [ ] notification par email en découplant via une file (NATS/RabbitMQ) et
   un second microservice.
 - [x] ajout d'un model AdminUser
+- [x] ajout d'un seed admin lors du build de  l'image backend
 - [ ] ajout d'une page de connexion
+- [ ] ajout d'un endpoint /messages/{id}
+- [ ] passer le message en status dès que l'user admin est est /messages/{id}
+- [x] ajout d'un login
+- [x] ajout d'un JWT
+- [x] ajout d'un middleware pour protéger les routes avec un JWT
 - [ ] ajout d'une connexion avec JWT
 - [ ] ajout d'un back-office
 - [ ] changer le (framework `chi`) par `gin`

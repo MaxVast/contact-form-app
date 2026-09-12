@@ -22,4 +22,11 @@ spec:
                 name: contact-backend
                 port:
                   number: {{ .Values.backend.port }}
+          - path: /api/admin
+            pathType: Prefix
+            backend:
+              service:
+                name: contact-backend
+                port:
+                  number: {{ .Values.backend.port }}
 {{- end }}

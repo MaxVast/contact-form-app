@@ -48,3 +48,6 @@ metrics:
   enabled: false
   serviceMonitorLabels:
     release: prometheus
+
+seedAdmin:
+  enabled: false

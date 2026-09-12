@@ -5,11 +5,13 @@ COPY go.mod go.sum* ./
 COPY . .
 RUN go mod tidy && go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o /contact-service ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /seed-admin ./cmd/seed-admin
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates && adduser -D -u 10001 appuser
 WORKDIR /app
 COPY --from=builder /contact-service ./contact-service
+COPY --from=builder /seed-admin ./seed-admin
 COPY --from=builder /app/migrations ./migrations
 
 USER appuser

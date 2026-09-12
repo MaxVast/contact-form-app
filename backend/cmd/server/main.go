@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/maxvast/contact-form-app/backend/internal/auth"
 	"github.com/maxvast/contact-form-app/backend/internal/config"
 	"github.com/maxvast/contact-form-app/backend/internal/database"
 	"github.com/maxvast/contact-form-app/backend/internal/handler"
@@ -43,9 +44,25 @@ func main() {
 		log.Fatalf("migration impossible: %v", err)
 	}
 
-	repo := repository.NewContactRepository(pool)
-	svc := service.NewContactService(repo)
-	h := handler.NewContactHandler(svc)
+	jwtExpiration, err := time.ParseDuration(cfg.JWTExpiration)
+	if err != nil {
+		log.Fatalf("durée JWT invalide: %v", err)
+	}
+
+	jwtService, err := auth.NewJWTService(cfg.JWTSecret, jwtExpiration)
+	if err != nil {
+		log.Fatalf("configuration JWT invalide: %v", err)
+	}
+	jwtMiddleware := middleware.NewJWTMiddleware(jwtService)
+
+	contactRepository := repository.NewContactRepository(pool)
+	contactService := service.NewContactService(contactRepository)
+	contactHandler := handler.NewContactHandler(contactService)
+
+	adminUserRepository := repository.NewAdminUserRepository(pool)
+	authService := service.NewAuthService(adminUserRepository)
+
+	authHandler := handler.NewAuthHandler(authService, jwtService)
 
 	rateLimiter := middleware.NewRateLimiter(2.0/60.0, 2)
 
@@ -62,15 +79,23 @@ func main() {
 		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins:   []string{cfg.CORSOrigin},
 			AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-			AllowedHeaders:   []string{"Content-Type"},
+			AllowedHeaders:   []string{"Content-Type", "Authorization"},
 			AllowCredentials: false,
 			MaxAge:           300,
 		}))
-		r.Get("/health", h.Health)
-		r.Get("/ready", h.Ready)
+		r.Get("/health", contactHandler.Health)
+		r.Get("/ready", contactHandler.Ready)
 		r.Route("/api/contact", func(r chi.Router) {
-			r.With(rateLimiter.Middleware).Post("/", h.Create)
-			r.Get("/", h.List)
+			r.With(rateLimiter.Middleware).Post("/", contactHandler.Create)
+		})
+		r.Route("/api/admin", func(r chi.Router) {
+			r.With(rateLimiter.Middleware).Post("/login", authHandler.Login)
+
+			r.Group(func(r chi.Router) {
+				r.Use(jwtMiddleware.Authenticate)
+				r.Get("/me", authHandler.Me)
+				r.Get("/messages", contactHandler.List)
+			})
 		})
 	})
 
